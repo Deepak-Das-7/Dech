@@ -1,7 +1,13 @@
+import Colors from '@/assets/color';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  SafeAreaView,
+  StyleSheet
+} from 'react-native';
 
 const Layout = () => {
   const [loading, setLoading] = useState(true);
@@ -11,7 +17,7 @@ const Layout = () => {
     (async () => {
       try {
         const storedToken = await AsyncStorage.getItem('token');
-        console.log(storedToken);
+        console.log('Retrieved token:', storedToken);
         setToken(storedToken);
       } catch (error) {
         console.error('Error checking token:', error);
@@ -23,16 +29,19 @@ const Layout = () => {
 
   if (loading) {
     return (
-      <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#6200ea" />
-      </View>
+      <SafeAreaView style={styles.loader}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </SafeAreaView>
     );
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name={token ? 'chat' : 'login'} />
-    </Stack>
+    <>
+      <StatusBar style="dark" />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name={token ? 'main' : 'main'} />
+      </Stack>
+    </>
   );
 };
 
@@ -41,7 +50,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.appBackground,
   },
 });
 

@@ -1,8 +1,8 @@
+import Colors from '@/assets/color';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
     Alert,
-    Button,
     StyleSheet,
     Text,
     TextInput,
@@ -16,10 +16,9 @@ const LoginScreen = () => {
     const [password, setPassword] = useState('');
 
     const handleLogin = () => {
-        // Example login logic (replace with real API call)
         if (emailOrUsername === 'test' && password === '1234') {
             Alert.alert('Success', 'Logged in successfully!');
-            router.replace('/chat'); // Navigate to home or protected route
+            router.replace('/main');
         } else {
             Alert.alert('Error', 'Invalid credentials');
         }
@@ -27,32 +26,40 @@ const LoginScreen = () => {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Login</Text>
+            <Text style={styles.title}>Welcome Back</Text>
 
-            <TextInput
-                style={styles.input}
-                placeholder="Email or Username"
-                value={emailOrUsername}
-                onChangeText={setEmailOrUsername}
-                autoCapitalize="none"
-                keyboardType="email-address"
-            />
+            <View style={styles.inputContainer}>
+                <TextInput
+                    style={styles.input}
+                    placeholder="Email or Username"
+                    placeholderTextColor={Colors.placeholderText}
+                    value={emailOrUsername}
+                    onChangeText={setEmailOrUsername}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                />
 
-            <TextInput
-                style={styles.input}
-                placeholder="Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-            />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Password"
+                    placeholderTextColor={Colors.placeholderText}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                />
+            </View>
 
-            <Button title="Login" onPress={handleLogin} />
+            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+                <Text style={styles.loginButtonText}>Login</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
                 style={styles.registerLink}
                 onPress={() => router.push('/register')}
             >
-                <Text style={styles.registerText}>Don't have an account? Register</Text>
+                <Text style={styles.registerText}>
+                    Don't have an account? <Text style={styles.registerTextHighlight}>Register</Text>
+                </Text>
             </TouchableOpacity>
         </View>
     );
@@ -63,31 +70,57 @@ export default LoginScreen;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: Colors.appBackground,
         padding: 24,
         justifyContent: 'center',
-        backgroundColor: '#fff',
     },
     title: {
-        fontSize: 28,
-        marginBottom: 32,
+        fontSize: 32,
         fontWeight: 'bold',
+        color: Colors.primary,
+        marginBottom: 40,
         textAlign: 'center',
     },
+    inputContainer: {
+        marginBottom: 24,
+    },
     input: {
-        height: 48,
-        borderColor: '#ccc',
+        backgroundColor: Colors.inputBackground,
+        borderColor: Colors.border,
         borderWidth: 1,
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        marginBottom: 16,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
         fontSize: 16,
+        color: Colors.textPrimary,
+        marginBottom: 16,
+    },
+    loginButton: {
+        backgroundColor: Colors.primary,
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: 'center',
+        shadowColor: Colors.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+        elevation: 3,
+    },
+    loginButtonText: {
+        color: Colors.buttonPrimaryText,
+        fontSize: 16,
+        fontWeight: '600',
     },
     registerLink: {
-        marginTop: 20,
+        marginTop: 24,
         alignItems: 'center',
     },
     registerText: {
-        color: '#6200ea',
         fontSize: 14,
+        color: Colors.textSecondary,
+    },
+    registerTextHighlight: {
+        color: Colors.secondary,
+        fontWeight: '600',
     },
 });
