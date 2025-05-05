@@ -1,6 +1,8 @@
 import Colors from '@/assets/color';
+import axios from 'axios';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     Alert,
     StyleSheet,
@@ -12,15 +14,26 @@ import {
 
 const LoginScreen = () => {
     const router = useRouter();
-    const [emailOrUsername, setEmailOrUsername] = useState('');
-    const [password, setPassword] = useState('');
+    const [emailOrUsername, setEmailOrUsername] = useState('vikasjha99@gmail.com');
+    const [password, setPassword] = useState('vikas999');
 
-    const handleLogin = () => {
-        if (emailOrUsername === 'test' && password === '1234') {
-            Alert.alert('Success', 'Logged in successfully!');
-            router.replace('/main');
-        } else {
-            Alert.alert('Error', 'Invalid credentials');
+    const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+
+    const handleLogin = async () => {
+        try {
+            const response = await axios.post(`${API_URL}/auth/login`, {
+                email: emailOrUsername,
+                password: password,
+            });
+            if (response.data.data.token) {
+                await AsyncStorage.setItem('token', response.data.data.token);
+                router.replace('/main');
+            } else {
+                Alert.alert('Error', 'Invalid credentials');
+            }
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Error', 'Failed to login');
         }
     };
 

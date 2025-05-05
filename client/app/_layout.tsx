@@ -17,7 +17,7 @@ const Layout = () => {
     (async () => {
       try {
         const storedToken = await AsyncStorage.getItem('token');
-        console.log('Retrieved token:', storedToken);
+        // console.log('Retrieved token:', storedToken);
         setToken(storedToken);
       } catch (error) {
         console.error('Error checking token:', error);
@@ -39,7 +39,7 @@ const Layout = () => {
     <>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name={token ? 'main' : 'main'} />
+        <Stack.Screen name={token ? 'main' : 'login'} />
       </Stack>
     </>
   );

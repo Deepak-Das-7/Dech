@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, ActivityIndicator, FlatList, Text, StyleSheet } from 'react-native';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
@@ -6,7 +6,7 @@ import Colors from '@/assets/color';
 import ChatListHeader from '@/components/home/ChatListHeader';
 import ChatItem from '@/components/home/ChatItem';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type ChatItemType = {
     id: string;
@@ -22,12 +22,17 @@ const ChatListScreen = () => {
     const [error, setError] = useState<string | null>(null);
 
     const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
-    const TOKEN = process.env.EXPO_PUBLIC_TOKEN;
 
-
+    // Function to fetch chats
     const fetchChats = async () => {
         try {
-            const decoded: { id: string } = jwtDecode(TOKEN || "");
+            const TOKEN = await AsyncStorage.getItem('token'); // Async fetch for the token
+
+            if (!TOKEN) {
+                throw new Error('No token found');
+            }
+
+            const decoded: { id: string } = jwtDecode(TOKEN); // Decode the JWT to get the current user's ID
             const currentUserId = decoded.id;
 
             const response = await axios.get(`${API_URL}/chats`, {
@@ -49,20 +54,21 @@ const ChatListScreen = () => {
                 };
             });
 
-            setChats(formatted);
+            setChats(formatted); // Set formatted chat data
         } catch (err) {
             console.error(err);
-            setError('Failed to load chats.');
+            setError('Failed to load chats.'); // Handle error
         } finally {
-            setLoading(false);
+            setLoading(false); // Update loading state
         }
     };
 
     useFocusEffect(
         useCallback(() => {
-            fetchChats();
-        }, [])
+            fetchChats(); // Fetch chats whenever the screen is focused
+        }, []) // Empty dependency array ensures it runs only once when the screen is focused
     );
+
     return (
         <View style={styles.container}>
             <ChatListHeader />
