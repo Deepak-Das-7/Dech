@@ -1,124 +1,97 @@
-import chatData from '@/assets/chat';
+import React, { useEffect, useState } from 'react';
+import { View, ActivityIndicator, FlatList, Text, StyleSheet } from 'react-native';
+import axios from 'axios';
+import { jwtDecode } from 'jwt-decode';
 import Colors from '@/assets/color';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React from 'react';
-import {
-    FlatList,
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import ChatListHeader from '@/components/home/ChatListHeader';
+import ChatItem from '@/components/home/ChatItem';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 
-const ChatList = () => {
-    const router = useRouter();
+type ChatItemType = {
+    id: string;
+    name: string;
+    avatar: string;
+    time: string;
+    lastMessage: string;
+};
 
-    const renderItem = ({ item }: { item: typeof chatData[0] }) => (
-        <TouchableOpacity
-            style={styles.chatItem}
-            onPress={() => router.push(`./main/${item.id}`)}
-        >
-            <Image source={{ uri: item.avatar }} style={styles.avatar} />
-            <View style={styles.messageContainer}>
-                <View style={styles.row}>
-                    <Text style={styles.name}>{item.name}</Text>
-                    <Text style={styles.time}>{item.time}</Text>
-                </View>
-                <Text style={styles.lastMessage} numberOfLines={1}>
-                    {item.lastMessage}
-                </Text>
-            </View>
-        </TouchableOpacity>
+const ChatListScreen = () => {
+    const [chats, setChats] = useState<ChatItemType[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+    const TOKEN = process.env.EXPO_PUBLIC_TOKEN;
+
+
+    const fetchChats = async () => {
+        try {
+            const decoded: { id: string } = jwtDecode(TOKEN || "");
+            const currentUserId = decoded.id;
+
+            const response = await axios.get(`${API_URL}/chats`, {
+                headers: {
+                    Authorization: `Bearer ${TOKEN}`,
+                },
+            });
+
+            const formatted = response.data.data.map((chat: any) => {
+                const otherUser = chat.members.find((m: any) => m._id !== currentUserId);
+                return {
+                    id: chat._id,
+                    name: otherUser?.username ?? 'Unknown',
+                    avatar: `https://ui-avatars.com/api/?name=${otherUser?.username ?? 'U'}`,
+                    time: chat.lastMessage
+                        ? new Date(chat.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : '',
+                    lastMessage: chat.lastMessage?.content ?? 'No messages yet',
+                };
+            });
+
+            setChats(formatted);
+        } catch (err) {
+            console.error(err);
+            setError('Failed to load chats.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchChats();
+        }, [])
     );
-
     return (
         <View style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <Text style={styles.logoText}>Dech</Text>
-                <TouchableOpacity onPress={() => router.push('/main/profile')}>
-                    <Ionicons name="person-circle" size={32} color={Colors.iconPrimary} />
-                </TouchableOpacity>
-            </View>
-
-            {/* Chat list */}
-            <FlatList
-                data={chatData}
-                keyExtractor={(item) => item.id}
-                renderItem={renderItem}
-                contentContainerStyle={styles.listContent}
-                ItemSeparatorComponent={() => <View style={styles.separator} />}
-            />
+            <ChatListHeader />
+            {loading ? (
+                <ActivityIndicator style={{ marginTop: 50 }} color={Colors.primary} size="large" />
+            ) : error ? (
+                <Text style={{ color: 'red', textAlign: 'center', marginTop: 20 }}>{error}</Text>
+            ) : (
+                <FlatList
+                    data={chats}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => <ChatItem item={item} />}
+                    contentContainerStyle={styles.listContent}
+                    ItemSeparatorComponent={() => <View style={styles.separator} />}
+                />
+            )}
         </View>
     );
 };
 
-export default ChatList;
+export default ChatListScreen;
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.appBackground,
     },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingTop: 40, // mimic SafeAreaView top padding manually
-        paddingBottom: 16,
-        backgroundColor: Colors.chatBackground,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
-    },
-    logoText: {
-        fontSize: 24,
-        fontWeight: '700',
-        color: Colors.primary,
-    },
     listContent: {
         padding: 16,
-    },
-    chatItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.inputBackground,
-        padding: 12,
-        borderRadius: 12,
-        shadowColor: Colors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    avatar: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        marginRight: 12,
-    },
-    messageContainer: {
-        flex: 1,
-    },
-    row: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    name: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: Colors.textPrimary,
-    },
-    time: {
-        fontSize: 12,
-        color: Colors.timestamp,
-    },
-    lastMessage: {
-        fontSize: 14,
-        color: Colors.textSecondary,
-        marginTop: 4,
     },
     separator: {
         height: 12,

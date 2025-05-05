@@ -1,89 +1,164 @@
 import Colors from '@/assets/color';
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import ChatHeader from '@/components/SingleChatHeader';
+import MessageInput from '@/components/MessageInput';
+import MessageList from '@/components/MessageList';
+import { useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
-    FlatList, Image, KeyboardAvoidingView, Platform,
-    StyleSheet, Text, TextInput, TouchableOpacity, View,
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    View,
+    ActivityIndicator,
+    Text,
 } from 'react-native';
+import axios from 'axios';
+import { jwtDecode } from 'jwt-decode';
 
-const dummyMessages = [
-    { id: '1', text: 'Hey!', fromMe: false, time: '10:00 AM' },
-    { id: '2', text: 'Hi, how are you?', fromMe: true, time: '10:01 AM' },
-    { id: '3', text: 'I am doing great. You?', fromMe: false, time: '10:02 AM' },
-];
+type MessageType = {
+    id: string;
+    text: string;
+    fromMe: boolean;
+    time: string;
+};
 
+type RawMessage = {
+    _id: string;
+    sender: { _id: string; username: string; email: string };
+    receiver: { _id: string; username: string; email: string }[];
+    content: string;
+    chat: string;
+    createdAt: string;
+};
 const ChatRoom = () => {
-    const router = useRouter();
     const { chatId } = useLocalSearchParams();
-    const [messages, setMessages] = useState(dummyMessages);
+    const [messages, setMessages] = useState<MessageType[]>([]);
     const [inputText, setInputText] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [otherUser, setOtherUser] = useState('');
 
-    const handleSend = () => {
+
+    const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+    const TOKEN = process.env.EXPO_PUBLIC_TOKEN;
+
+    const decoded: { id: string } = jwtDecode(TOKEN || "");
+    const currentUserId = decoded.id;
+
+    const fetchMessages = async () => {
+        try {
+            const response = await axios.get(`${API_URL}/messages/${chatId}`, {
+                headers: {
+                    Authorization: `Bearer ${TOKEN}`,
+                },
+            });
+
+            const formatted = (response.data as RawMessage[]).map((msg) => ({
+                id: msg._id,
+                text: msg.content,
+                fromMe: msg.sender._id === currentUserId,
+                time: new Date(msg.createdAt).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                }),
+            }));
+
+
+
+            setMessages(formatted);
+        } catch (err) {
+            console.error(err);
+            setError('Failed to load messages.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSend = async () => {
         if (!inputText.trim()) return;
-        const now = new Date();
-        const formattedTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const newMessage = {
-            id: Date.now().toString(),
-            text: inputText,
-            fromMe: true,
-            time: formattedTime,
-        };
-        setMessages([...messages, newMessage]);
-        setInputText('');
+
+        try {
+            const now = new Date();
+
+            const response = await axios.post(
+                `${API_URL}/messages`,
+                {
+                    chatId,
+                    content: inputText,
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${TOKEN}`,
+                    },
+                }
+            );
+            const newMessage = {
+                id: response.data._id,
+                text: response.data.content,
+                fromMe: true,
+                time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            };
+
+            setMessages((prev) => [...prev, newMessage]);
+            setInputText('');
+        } catch (err) {
+            console.error('Failed to send message:', err);
+        }
     };
 
-    const renderMessage = ({ item }: { item: typeof dummyMessages[0] }) => {
-        const isMine = item.fromMe;
-        return (
-            <View>
-                <View style={isMine ? styles.myMessage : styles.otherMessage}>
-                    <Text style={isMine ? styles.myMessageText : styles.otherMessageText}>{item.text}</Text>
-                </View>
-                <Text style={isMine ? styles.myMessageTime : styles.otherMessageTime}>{item.time}</Text>
-            </View>
-        );
+    const fetchChat = async () => {
+        try {
+            const response = await axios.get(`${API_URL}/chats/${chatId}`, {
+                headers: {
+                    Authorization: `Bearer ${TOKEN}`,
+                },
+            });
+
+            const chatData = response.data.data;
+            // Find the other user (not the current user)
+            const otherUser = chatData.members.find(
+                (member: { _id: string }) => member._id !== currentUserId
+            );
+            setOtherUser(otherUser.username)
+            if (otherUser) {
+                console.log('Other User:', otherUser);
+            } else {
+                console.log('Other user not found');
+            }
+        } catch (err) {
+            console.error(err);
+            setError('Failed to load chat.');
+        } finally {
+            setLoading(false);
+        }
     };
+
+
+    useEffect(() => {
+        fetchMessages();
+        fetchChat();
+    }, [chatId]);
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.headerIcon}>
-                    <Ionicons name="arrow-back" size={24} />
-                </TouchableOpacity>
-                <View style={styles.headerCenter}>
-                    <Image source={{ uri: 'https://i.pravatar.cc/150?img=2' }} style={styles.avatar} />
-                    <Text style={styles.username}>Friend {chatId}</Text>
-                </View>
-                <View style={styles.headerRight}>
-                    <Text style={styles.statusText}>Online</Text>
-                </View>
-            </View>
-
-            <FlatList
-                data={messages}
-                keyExtractor={(item) => item.id}
-                renderItem={renderMessage}
-                contentContainerStyle={styles.messageList}
-                inverted
-            />
+            <ChatHeader chatId={otherUser} />
+            {loading ? (
+                <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 50 }} />
+            ) : error ? (
+                <Text style={{ color: 'red', textAlign: 'center', marginTop: 20 }}>{error}</Text>
+            ) : (
+                <MessageList messages={messages} />
+            )}
 
             <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 keyboardVerticalOffset={80}
             >
-                <View style={styles.inputBar}>
-                    <TextInput
-                        style={styles.input}
-                        value={inputText}
-                        onChangeText={setInputText}
-                        placeholder="Type a message"
-                        placeholderTextColor={Colors.placeholderText}
-                    />
-                    <TouchableOpacity onPress={handleSend} style={styles.sendButton}>
-                        <Ionicons name="send" size={20} color={Colors.buttonPrimaryText} />
-                    </TouchableOpacity>
-                </View>
+                <MessageInput
+                    inputText={inputText}
+                    setInputText={setInputText}
+                    handleSend={handleSend}
+                />
             </KeyboardAvoidingView>
         </View>
     );
@@ -96,74 +171,5 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.chatBackground,
         paddingTop: Platform.OS === 'android' ? 35 : 0,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderBottomWidth: 0.5,
-        borderColor: Colors.border,
-    },
-    headerIcon: { paddingRight: 8 },
-    headerCenter: { flexDirection: 'row', alignItems: 'center', flex: 1, marginLeft: 12 },
-    headerRight: { paddingLeft: 8 },
-    avatar: { width: 32, height: 32, borderRadius: 16, marginRight: 8 },
-    username: { fontSize: 16, color: Colors.textPrimary, fontWeight: '600' },
-    statusText: { fontSize: 12, color: Colors.online, fontWeight: '500' },
-    messageList: { padding: 16, gap: 12, flexGrow: 1, justifyContent: 'flex-end' },
-    myMessage: {
-        alignSelf: 'flex-end',
-        backgroundColor: Colors.userMessageBg,
-        borderRadius: 10,
-        padding: 7,
-        maxWidth: '75%',
-    },
-    otherMessage: {
-        alignSelf: 'flex-start',
-        backgroundColor: Colors.otherMessageBg,
-        borderRadius: 10,
-        padding: 7,
-        maxWidth: '85%',
-    },
-    myMessageText: { color: Colors.messageText, fontSize: 12 },
-    otherMessageText: { color: Colors.messageText, fontSize: 12 },
-    myMessageTime: {
-        fontSize: 8,
-        color: Colors.placeholderText,
-        alignSelf: 'flex-end',
-        marginTop: 1,
-    },
-    otherMessageTime: {
-        fontSize: 8,
-        color: Colors.placeholderText,
-        alignSelf: 'flex-start',
-        marginTop: 1,
-    },
-    inputBar: {
-        flexDirection: 'row',
-        backgroundColor: Colors.inputBackground,
-        padding: 10,
-        alignItems: 'center',
-        borderTopWidth: 1,
-        borderTopColor: Colors.border,
-    },
-    input: {
-        flex: 1,
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        fontSize: 15,
-        borderWidth: 1,
-        borderColor: Colors.border,
-        color: Colors.textPrimary,
-    },
-    sendButton: {
-        marginLeft: 10,
-        backgroundColor: Colors.buttonPrimaryBg,
-        borderRadius: 20,
-        padding: 10,
     },
 });

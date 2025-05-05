@@ -5,12 +5,14 @@ import {
   createChat,
   getChatBetweenUsers,
   getUserChats,
+  getChatById,
 } from "../controllers/chat.controller";
 
 const router = Router();
 
-router.post("/", authMiddleware, createChat);
+router.post("/:receiverId", authMiddleware, createChat);
 router.get("/", authMiddleware, getUserChats);
+router.get("/:chatId", getChatById);
 router.get("/find/:userId", authMiddleware, getChatBetweenUsers);
 
 export default router;
