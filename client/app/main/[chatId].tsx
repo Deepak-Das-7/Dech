@@ -120,11 +120,6 @@ const ChatRoom = () => {
                 (member: { _id: string }) => member._id !== currentUserId
             );
             setOtherUser(otherUser.username)
-            if (otherUser) {
-                console.log('Other User:', otherUser);
-            } else {
-                console.log('Other user not found');
-            }
         } catch (err) {
             console.error(err);
             setError('Failed to load chat.');
