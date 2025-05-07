@@ -12,15 +12,14 @@ import {
 const Layout = () => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
-
   useEffect(() => {
     (async () => {
       try {
         const storedToken = await AsyncStorage.getItem('token');
-        // console.log('Retrieved token:', storedToken);
+        console.log('Retrieved token:', storedToken);
         setToken(storedToken);
       } catch (error) {
-        console.error('Error checking token:', error);
+        console.log('Error checking token:', error);
       } finally {
         setLoading(false);
       }

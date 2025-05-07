@@ -1,164 +1,104 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, View, ActivityIndicator, Text } from 'react-native';
-import axios from 'axios';
-import { jwtDecode } from 'jwt-decode';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Colors from '@/assets/color';
+import {
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    View,
+    ActivityIndicator,
+    Text,
+} from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+
 import ChatHeader from '@/components/SingleChatHeader';
 import MessageInput from '@/components/MessageInput';
 import MessageList from '@/components/MessageList';
-import { useLocalSearchParams } from 'expo-router';
-import { MessageType, RawMessage } from '@/assets/types';
-import { io, Socket } from 'socket.io-client';
+import Colors from '@/assets/color';
+import { MessageType } from '@/assets/types/other';
+import { getTokenAndUserId } from '@/apis/authHelper';
+import { fetchChatInfo, fetchMessagesFromAPI } from '@/apis/chathelpers';
+import { cleanupSocket, initSocket, listenForMessages } from '@/apis/socketHelpers';
+import { sendMessageToAPI } from '@/apis/messageHelpers';
+
+
+
 
 const ChatRoom = () => {
-    const { chatId } = useLocalSearchParams();
+    const { chatId } = useLocalSearchParams<{ chatId: string }>();
     const [messages, setMessages] = useState<MessageType[]>([]);
     const [inputText, setInputText] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [token, setToken] = useState<string | null>(null);
-    const socketRef = useRef<Socket | null>(null);
     const [otherUser, setOtherUser] = useState('');
     const [otherUserId, setOtherUserId] = useState('');
+    const socketRef = useRef<any>(null);
     const currentUserId = useRef<string>('');
 
-    const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
-    const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL || API_URL; // fallback
+    const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL!;
+    const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL || API_URL;
 
     useEffect(() => {
-        const fetchToken = async () => {
-            const storedToken = await AsyncStorage.getItem('token');
-            if (storedToken) {
-                setToken(storedToken);
-                const decoded: { id: string } = jwtDecode(storedToken);
-                currentUserId.current = decoded.id;
-            }
-        };
-        fetchToken();
-    }, []);
+        const init = async () => {
+            const auth = await getTokenAndUserId();
+            if (!auth || !chatId) return;
 
-    useEffect(() => {
-        if (!token || !chatId) return;
+            setToken(auth.token);
+            currentUserId.current = auth.userId;
 
-        const fetchMessages = async () => {
             try {
-                const response = await axios.get(`${API_URL}/messages/${chatId}`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
+                const [chatInfo, msgs] = await Promise.all([
+                    fetchChatInfo(auth.token, chatId, auth.userId, API_URL),
+                    fetchMessagesFromAPI(auth.token, chatId, API_URL, auth.userId),
+                ]);
 
-                const formatted = (response.data as RawMessage[]).map((msg) => ({
-                    id: msg._id,
-                    text: msg.content,
-                    fromMe: msg.sender._id === currentUserId.current,
-                    time: new Date(msg.createdAt).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                    }),
-                }));
-
-                setMessages(formatted);
+                setOtherUser(chatInfo.otherUser);
+                setOtherUserId(chatInfo.otherUserId);
+                setMessages(msgs);
             } catch (err) {
-                console.error(err);
-                setError('Failed to load messages.');
+                console.log(err);
+                setError('Failed to load data.');
             } finally {
                 setLoading(false);
             }
         };
 
-        const fetchChat = async () => {
-            try {
-                const response = await axios.get(`${API_URL}/chats/${chatId}`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-
-                const chatData = response.data.data;
-                const otherUser = chatData.members.find(
-                    (member: { _id: string }) => member._id !== currentUserId.current
-                );
-                setOtherUser(otherUser?.username || 'User');
-                setOtherUserId(otherUser?._id);
-            } catch (err) {
-                console.error(err);
-                setError('Failed to load chat.');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchMessages();
-        fetchChat();
-    }, [token, chatId, API_URL]);
+        init();
+    }, [chatId]);
 
     useEffect(() => {
         if (!token || !chatId) return;
 
-        // Connect to socket
-        socketRef.current = io(SOCKET_URL, {
-            auth: { token },
-            transports: ['websocket'],
-        });
+        const socket = initSocket(token, SOCKET_URL);
+        socketRef.current = socket;
+        socket.emit('joinChat', chatId);
 
-        socketRef.current.emit('joinChat', chatId);
+        listenForMessages(socket, currentUserId.current, (msg) =>
+            setMessages((prev) => [...prev, msg])
+        );
 
-        socketRef.current.on('receiveMessage', (msg: RawMessage) => {
-            if (msg.sender._id === currentUserId.current) {
-                return;
-            }
-
-            const incomingMessage: MessageType = {
-                id: msg._id,
-                text: msg.content,
-                fromMe: false,
-                time: new Date(msg.createdAt).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                }),
-            };
-
-            setMessages((prev) => [...prev, incomingMessage]);
-        });
-
-
-        return () => {
-            socketRef.current?.disconnect();
-        };
-    }, [token, chatId, SOCKET_URL]);
+        return () => cleanupSocket(socketRef.current);
+    }, [token, chatId]);
 
     const handleSend = async () => {
-        if (!inputText.trim()) return;
+        if (!inputText.trim() || !token) return;
 
         try {
-            const now = new Date();
+            const sent = await sendMessageToAPI(chatId, inputText, token, API_URL);
+            sent.receiverId = [otherUserId];
 
-            const response = await axios.post(
-                `${API_URL}/messages`,
-                { chatId, content: inputText },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-
-            const newMessage: MessageType = {
-                id: response.data._id,
-                text: response.data.content,
-                fromMe: true,
-                time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            };
-
-            setMessages((prev) => [...prev, newMessage]);
+            setMessages((prev) => [...prev, sent]);
             setInputText('');
 
-            // 🔧 Emit socket message with all required fields
             socketRef.current?.emit('sendMessage', {
-                chatId: response.data.chat,
-                content: response.data.content,
-                senderId: currentUserId.current, // your logged-in user ID
-                receiverId: [otherUserId], // the user you're chatting with
+                chatId: sent.chat,
+                content: sent.text,
+                senderId: currentUserId.current,
+                receiverId: sent.receiverId,
             });
         } catch (err) {
-            console.error('Failed to send message:', err);
+            console.log('Send failed:', err);
         }
     };
-
 
     if (loading) {
         return <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 50 }} />;
