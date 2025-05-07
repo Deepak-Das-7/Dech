@@ -1,32 +1,22 @@
 import Colors from '@/assets/color';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AuthProvider, useAuth } from '@/contex/UserContext';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  SafeAreaView,
-  StyleSheet
-} from 'react-native';
+import React from 'react';
+import { ActivityIndicator, SafeAreaView, StyleSheet } from 'react-native';
 
 const Layout = () => {
-  const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState<string | null>(null);
-  useEffect(() => {
-    (async () => {
-      try {
-        const storedToken = await AsyncStorage.getItem('token');
-        console.log('Retrieved token:', storedToken);
-        setToken(storedToken);
-      } catch (error) {
-        console.log('Error checking token:', error);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  return (
+    <AuthProvider>
+      <AuthContent />
+    </AuthProvider>
+  );
+};
 
-  if (loading) {
+const AuthContent = () => {
+  const { Token, isLoading } = useAuth();
+
+  if (isLoading) {
     return (
       <SafeAreaView style={styles.loader}>
         <ActivityIndicator size="large" color={Colors.primary} />
@@ -38,7 +28,7 @@ const Layout = () => {
     <>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name={token ? 'main' : 'login'} />
+        <Stack.Screen name={Token ? 'main' : 'login'} />
       </Stack>
     </>
   );

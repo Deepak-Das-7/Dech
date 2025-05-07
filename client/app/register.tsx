@@ -1,4 +1,5 @@
 import Colors from '@/assets/color';
+import axios from 'axios';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -17,8 +18,9 @@ const RegisterScreen = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
-    const handleRegister = () => {
+    const handleRegister = async () => {
         if (!username || !email || !password || !confirmPassword) {
             Alert.alert('Error', 'Please fill all fields');
             return;
@@ -29,9 +31,19 @@ const RegisterScreen = () => {
             return;
         }
 
-        // Simulate registration
-        Alert.alert('Success', 'Account created!');
-        router.replace('/login');
+        const response = await axios.post(`${API_URL}/auth/register`, {
+            email: email,
+            username: username,
+            password: password
+        });
+
+        if (response) {
+            Alert.alert('Success', 'Account created!');
+            router.replace('/login');
+        } else {
+            Alert.alert('Error', 'Invalid data');
+        }
+
     };
 
     return (

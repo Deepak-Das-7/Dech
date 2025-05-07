@@ -1,26 +1,26 @@
-import React, { useEffect, useState } from 'react';
-import {
-    Modal,
-    View,
-    Text,
-    TextInput,
-    FlatList,
-    TouchableOpacity,
-    StyleSheet,
-    ActivityIndicator,
-    Image
-} from 'react-native';
 import Colors from '@/assets/color';
+import { useAuth } from '@/contex/UserContext'; // Import the useAuth hook
 import axios from 'axios';
 import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    FlatList,
+    Image,
+    Modal,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
 
 type User = {
     _id: string;
     username: string;
     email: string;
-    profilePic?: string; // assuming this is the image URL
+    profilePic?: string;
 };
-
 
 type Props = {
     visible: boolean;
@@ -28,35 +28,39 @@ type Props = {
 };
 
 const UserSearchModal = ({ visible, onClose }: Props) => {
+    const { Token } = useAuth(); // Get the token from context
     const [users, setUsers] = useState<User[]>([]);
     const [filtered, setFiltered] = useState<User[]>([]);
     const [searchText, setSearchText] = useState('');
     const [loading, setLoading] = useState(false);
 
     const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
-    const TOKEN = process.env.EXPO_PUBLIC_TOKEN;
 
     useEffect(() => {
+        const fetchUsers = async () => {
+            if (!Token) return; // Don't proceed if no token
+
+            setLoading(true);
+
+            try {
+                const res = await axios.get(`${API_URL}/users`, {
+                    headers: {
+                        Authorization: `Bearer ${Token}`,
+                    },
+                });
+
+                console.log(res.data);
+                setUsers(res.data.data);
+                setFiltered(res.data.data);
+            } catch (err) {
+                console.log('Error fetching users', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
         if (visible) fetchUsers();
-    }, [visible]);
-
-    const fetchUsers = async () => {
-        setLoading(true);
-        try {
-            const res = await axios.get(`${API_URL}/users`, {
-                headers: {
-                    Authorization: `Bearer ${TOKEN}`,
-                },
-            });
-            setUsers(res.data.data);
-            setFiltered(res.data.data);
-        } catch (err) {
-            console.log('Error fetching users', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
+    }, [visible, Token]); // Add Token to dependency array
 
     const handleSearch = (text: string) => {
         setSearchText(text);
@@ -67,20 +71,24 @@ const UserSearchModal = ({ visible, onClose }: Props) => {
     };
 
     async function handleUserSelect(item: User) {
+        if (!Token) return; // Don't proceed if no token
+
         try {
             const res = await axios.post(
                 `${API_URL}/chats/${item._id}`,
                 null,
                 {
                     headers: {
-                        Authorization: `Bearer ${TOKEN}`,
+                        Authorization: `Bearer ${Token}`,
                     },
                 }
             );
 
-            const chatId = res.data.data._id
+            const chatId = res.data.data._id;
             if (chatId) {
                 router.push(`/main/${chatId}`);
+                onClose();
+                setSearchText("");
             } else {
                 console.log('Chat ID not found in response');
             }
@@ -117,11 +125,7 @@ const UserSearchModal = ({ visible, onClose }: Props) => {
                             renderItem={({ item }) => (
                                 <TouchableOpacity
                                     style={styles.userItem}
-                                    onPress={() => {
-                                        handleUserSelect(item);
-                                        onClose();
-                                        setSearchText("");
-                                    }}
+                                    onPress={() => handleUserSelect(item)}
                                 >
                                     <View style={styles.userInfo}>
                                         <Image
@@ -133,7 +137,6 @@ const UserSearchModal = ({ visible, onClose }: Props) => {
                                             <Text style={styles.email}>{item.email}</Text>
                                         </View>
                                     </View>
-
                                 </TouchableOpacity>
                             )}
                         />
@@ -143,8 +146,6 @@ const UserSearchModal = ({ visible, onClose }: Props) => {
         </Modal>
     );
 };
-
-export default UserSearchModal;
 
 const styles = StyleSheet.create({
     modalOverlay: {
@@ -206,5 +207,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 10,
     },
-
 });
+
+export default UserSearchModal;

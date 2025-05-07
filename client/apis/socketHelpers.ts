@@ -1,5 +1,5 @@
+import { MessageType, RawMessage } from "@/assets/types/other";
 import { io, Socket } from "socket.io-client";
-import { RawMessage, MessageType } from "@/assets/types/other";
 
 export const initSocket = (token: string, socketUrl: string): Socket => {
   return io(socketUrl, {

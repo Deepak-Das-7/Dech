@@ -1,54 +1,46 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+    ActivityIndicator,
     KeyboardAvoidingView,
     Platform,
     StyleSheet,
-    View,
-    ActivityIndicator,
     Text,
+    View,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
 
-import ChatHeader from '@/components/SingleChatHeader';
-import MessageInput from '@/components/MessageInput';
-import MessageList from '@/components/MessageList';
+import { fetchChatInfo, fetchMessagesFromAPI } from '@/apis/chathelpers';
+import { sendMessageToAPI } from '@/apis/messageHelpers';
+import { cleanupSocket, initSocket, listenForMessages } from '@/apis/socketHelpers';
 import Colors from '@/assets/color';
 import { MessageType } from '@/assets/types/other';
-import { getTokenAndUserId } from '@/apis/authHelper';
-import { fetchChatInfo, fetchMessagesFromAPI } from '@/apis/chathelpers';
-import { cleanupSocket, initSocket, listenForMessages } from '@/apis/socketHelpers';
-import { sendMessageToAPI } from '@/apis/messageHelpers';
-
-
-
+import MessageInput from '@/components/MessageInput';
+import MessageList from '@/components/MessageList';
+import ChatHeader from '@/components/SingleChatHeader';
+import { useAuth } from '@/contex/UserContext';
 
 const ChatRoom = () => {
+    const { Token, userDetails, error } = useAuth(); // Using context here for token and userDetails
     const { chatId } = useLocalSearchParams<{ chatId: string }>();
     const [messages, setMessages] = useState<MessageType[]>([]);
     const [inputText, setInputText] = useState('');
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [token, setToken] = useState<string | null>(null);
     const [otherUser, setOtherUser] = useState('');
     const [otherUserId, setOtherUserId] = useState('');
     const socketRef = useRef<any>(null);
-    const currentUserId = useRef<string>('');
+    const currentUserId = useRef<string>(userDetails?.id || '');
 
     const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL!;
     const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL || API_URL;
 
     useEffect(() => {
         const init = async () => {
-            const auth = await getTokenAndUserId();
-            if (!auth || !chatId) return;
-
-            setToken(auth.token);
-            currentUserId.current = auth.userId;
+            if (!Token || !chatId || !userDetails) return;
 
             try {
                 const [chatInfo, msgs] = await Promise.all([
-                    fetchChatInfo(auth.token, chatId, auth.userId, API_URL),
-                    fetchMessagesFromAPI(auth.token, chatId, API_URL, auth.userId),
+                    fetchChatInfo(Token, chatId, userDetails.id, API_URL),
+                    fetchMessagesFromAPI(Token, chatId, API_URL, userDetails.id),
                 ]);
 
                 setOtherUser(chatInfo.otherUser);
@@ -56,19 +48,19 @@ const ChatRoom = () => {
                 setMessages(msgs);
             } catch (err) {
                 console.log(err);
-                setError('Failed to load data.');
+                console.log("failed to load message")
             } finally {
                 setLoading(false);
             }
         };
 
         init();
-    }, [chatId]);
+    }, [chatId, Token, userDetails]);
 
     useEffect(() => {
-        if (!token || !chatId) return;
+        if (!Token || !chatId) return;
 
-        const socket = initSocket(token, SOCKET_URL);
+        const socket = initSocket(Token, SOCKET_URL);
         socketRef.current = socket;
         socket.emit('joinChat', chatId);
 
@@ -77,13 +69,13 @@ const ChatRoom = () => {
         );
 
         return () => cleanupSocket(socketRef.current);
-    }, [token, chatId]);
+    }, [Token, chatId]);
 
     const handleSend = async () => {
-        if (!inputText.trim() || !token) return;
+        if (!inputText.trim() || !Token) return;
 
         try {
-            const sent = await sendMessageToAPI(chatId, inputText, token, API_URL);
+            const sent = await sendMessageToAPI(chatId, inputText, Token, API_URL);
             sent.receiverId = [otherUserId];
 
             setMessages((prev) => [...prev, sent]);

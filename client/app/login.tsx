@@ -1,8 +1,7 @@
 import Colors from '@/assets/color';
-import axios from 'axios';
+import { useAuth } from '@/contex/UserContext';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     Alert,
     StyleSheet,
@@ -14,26 +13,28 @@ import {
 
 const LoginScreen = () => {
     const router = useRouter();
-    const [emailOrUsername, setEmailOrUsername] = useState('vikasjha99@gmail.com');
-    const [password, setPassword] = useState('vikas999');
+    const { login, isLoading, error } = useAuth();
+    const [emailOrUsername, setEmailOrUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
-    const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
     const handleLogin = async () => {
+        if (!emailOrUsername || !password) {
+            Alert.alert('Error', 'Please fill in all fields');
+            return;
+        }
+
         try {
-            const response = await axios.post(`${API_URL}/auth/login`, {
-                email: emailOrUsername,
-                password: password,
-            });
-            if (response.data.data.token) {
-                await AsyncStorage.setItem('token', response.data.data.token);
+            const response = await login(emailOrUsername, password);
+            if (response) {
                 router.replace('/main');
             } else {
                 Alert.alert('Error', 'Invalid credentials');
             }
-        } catch (error) {
-            console.log(error);
-            Alert.alert('Error', 'Failed to login');
+        } catch (err) {
+            console.log(err);
+            Alert.alert('Error', error || 'Failed to login');
         }
     };
 
@@ -52,18 +53,28 @@ const LoginScreen = () => {
                     keyboardType="email-address"
                 />
 
-                <TextInput
-                    style={styles.input}
-                    placeholder="Password"
-                    placeholderTextColor={Colors.placeholderText}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                />
+                <View style={styles.passwordContainer}>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Password"
+                        placeholderTextColor={Colors.placeholderText}
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry={!isPasswordVisible}
+                    />
+                    <TouchableOpacity
+                        style={styles.eyeIcon}
+                        onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+                    >
+                        <Text style={styles.eyeText}>{isPasswordVisible ? 'Hide' : 'Show'}</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-                <Text style={styles.loginButtonText}>Login</Text>
+            <TouchableOpacity style={styles.loginButton} onPress={handleLogin} disabled={isLoading}>
+                <Text style={styles.loginButtonText}>
+                    {isLoading ? 'Logging in...' : 'Login'}
+                </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -77,8 +88,6 @@ const LoginScreen = () => {
         </View>
     );
 };
-
-export default LoginScreen;
 
 const styles = StyleSheet.create({
     container: {
@@ -107,6 +116,18 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: Colors.textPrimary,
         marginBottom: 16,
+    },
+    passwordContainer: {
+        position: 'relative',
+    },
+    eyeIcon: {
+        position: 'absolute',
+        right: 16,
+        top: 18,
+    },
+    eyeText: {
+        fontSize: 14,
+        color: Colors.secondary,
     },
     loginButton: {
         backgroundColor: Colors.primary,
@@ -137,3 +158,5 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 });
+
+export default LoginScreen;
