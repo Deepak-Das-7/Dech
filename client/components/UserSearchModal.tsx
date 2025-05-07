@@ -51,7 +51,7 @@ const UserSearchModal = ({ visible, onClose }: Props) => {
             setUsers(res.data.data);
             setFiltered(res.data.data);
         } catch (err) {
-            console.error('Error fetching users', err);
+            console.log('Error fetching users', err);
         } finally {
             setLoading(false);
         }
@@ -82,10 +82,10 @@ const UserSearchModal = ({ visible, onClose }: Props) => {
             if (chatId) {
                 router.push(`/main/${chatId}`);
             } else {
-                console.error('Chat ID not found in response');
+                console.log('Chat ID not found in response');
             }
         } catch (err) {
-            console.error('Error creating/fetching chat', err);
+            console.log('Error creating/fetching chat', err);
         }
     }
 

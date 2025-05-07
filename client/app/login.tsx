@@ -32,7 +32,7 @@ const LoginScreen = () => {
                 Alert.alert('Error', 'Invalid credentials');
             }
         } catch (error) {
-            console.error(error);
+            console.log(error);
             Alert.alert('Error', 'Failed to login');
         }
     };

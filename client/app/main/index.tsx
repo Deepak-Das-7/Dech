@@ -56,7 +56,7 @@ const ChatListScreen = () => {
 
             setChats(formatted); // Set formatted chat data
         } catch (err) {
-            console.error(err);
+            console.log(err);
             setError('Failed to load chats.'); // Handle error
         } finally {
             setLoading(false); // Update loading state

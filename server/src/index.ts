@@ -29,6 +29,6 @@ connectDB()
     });
   })
   .catch((error) => {
-    console.error("❌ DB connection failed", error);
+    console.log("❌ DB connection failed", error);
     process.exit(1);
   });
