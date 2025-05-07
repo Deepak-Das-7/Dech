@@ -13,49 +13,16 @@ export const setupSocket = (io: Server) => {
       console.log(`User joined chat room: ${chatId}`);
     });
 
-    // Handle sending a message
-    socket.on(
-      "sendMessage",
-      async (data: {
-        chatId: string;
-        content: string;
-        receiverId: string[];
-      }) => {
-        const { chatId, content, receiverId } = data;
-        const senderId = socket.id; // Use socket.id for now, or replace with authenticated user ID
-
-        try {
-          // Normalize receiverId to an array
-          const receivers: string[] = Array.isArray(receiverId)
-            ? receiverId
-            : [receiverId];
-
-          // Create messages for each recipient
-          const messages = await Promise.all(
-            receivers.map((rid) =>
-              Message.create({
-                sender: senderId, // Assuming socket.id is used as senderId for now
-                receiver: rid,
-                content,
-                chat: chatId,
-              })
-            )
-          );
-
-          // Update the lastMessage field in the chat with the most recent one
-          const lastMessage = messages[messages.length - 1];
-          await Chat.findByIdAndUpdate(chatId, {
-            lastMessage: lastMessage._id,
-          });
-          console.log("new messagedd:", messages);
-          // Emit the new messages to all users in the chat room
-          io.to(chatId).emit("newMessages", messages); // Emit new messages to all users in the chat room
-        } catch (err) {
-          console.error("Error in sending message:", err);
-          socket.emit("messageError", { message: "Error in sending message" });
-        }
-      }
-    );
+    // In socket setup, just emit the message — don't save to DB again
+    socket.on("sendMessage", (data) => {
+      io.to(data.chatId).emit("receiveMessage", {
+        chatId: data.chatId,
+        content: data.content,
+        sender: { _id: data.senderId },
+        createdAt: new Date().toISOString(),
+        _id: crypto.randomUUID(), // or reuse the one returned from API
+      });
+    });
 
     // Handle user disconnecting from the socket
     socket.on("disconnect", () => {
