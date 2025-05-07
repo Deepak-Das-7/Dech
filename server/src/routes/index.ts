@@ -4,19 +4,20 @@ import authRoutes from "./auth.routes";
 import userRoutes from "./user.routes";
 import chatRoutes from "./chat.routes";
 
-const routes = express();
+const routes = express.Router(); // Use express.Router() for defining route handlers
 
 // Middleware
 routes.use(express.json());
-routes.use(cors()); // You may want to enable CORS, if needed
+routes.use(cors());
 
-// Routes
+// Define the root route handler directly on the 'routes' router
+routes.get("/", (req, res) => {
+  res.send("API is running");
+});
+
+// Mount other route handlers
 routes.use("/auth", authRoutes);
 routes.use("/users", userRoutes);
 routes.use("/chats", chatRoutes);
 
-// If you want to protect some routes using authMiddleware
-// Example: routes.use("/protected", authMiddleware, protectedRoutes);
-
-// Exporting routes
 export default routes;
