@@ -38,10 +38,8 @@ const ChatRoom = () => {
             if (!Token || !chatId || !userDetails) return;
 
             try {
-                const [chatInfo, msgs] = await Promise.all([
-                    fetchChatInfo(Token, chatId, userDetails.id, API_URL),
-                    fetchMessagesFromAPI(Token, chatId, API_URL, userDetails.id),
-                ]);
+                const chatInfo = await fetchChatInfo(Token, chatId, userDetails.id, API_URL);
+                const msgs = await fetchMessagesFromAPI(Token, chatId, API_URL, userDetails.id);
 
                 setOtherUser(chatInfo.otherUser);
                 setOtherUserId(chatInfo.otherUserId);

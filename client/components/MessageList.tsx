@@ -1,16 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { FlatList, StyleSheet } from 'react-native';
 import MessageBubble from './MessageBubble';
-
-type Message = {
-    id: string;
-    text: string;
-    fromMe: boolean;
-    time: string;
-};
+import { MessageType } from '@/assets/types/other';
 
 type Props = {
-    messages: Message[];
+    messages: MessageType[];
 };
 
 const MessageList: React.FC<Props> = ({ messages }) => {

@@ -30,7 +30,6 @@ export const fetchMessagesFromAPI = async (
   const response = await axios.get(`${apiUrl}/messages/${chatId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-
   return response.data.map((msg: any) => ({
     id: msg._id,
     text: msg.content,

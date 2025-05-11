@@ -49,7 +49,7 @@ const UserSearchModal = ({ visible, onClose }: Props) => {
                     },
                 });
 
-                console.log(res.data);
+                // console.log(res.data);
                 setUsers(res.data.data);
                 setFiltered(res.data.data);
             } catch (err) {
